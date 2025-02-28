@@ -1,14 +1,19 @@
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index d94f2ed6d..4a8aa1fbb 100644
+index d94f2ed6d1f4..2eca87391f93 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -1448,19 +1448,11 @@ s64 dl_scaled_delta_exec(struct rq *rq, struct sched_dl_entity *dl_se, s64 delta
+@@ -1446,21 +1446,15 @@ s64 dl_scaled_delta_exec(struct rq *rq, struct sched_dl_entity *dl_se, s64 delta
+ 	s64 scaled_delta_exec;
+ 
  	/*
- 	 * For tasks that participate in GRUB, we implement GRUB-PA: the
- 	 * spare reclaimed bandwidth is used to clock down frequency.
--	 *
+-	 * For tasks that participate in GRUB, we implement GRUB-PA: the
+-	 * spare reclaimed bandwidth is used to clock down frequency.
++	 * For tasks that participate in GRUB, we reclaim spare
++	 * bandwidth according to the GRUB accounting rule.
+ 	 *
 -	 * For the others, we still need to scale reservation parameters
 -	 * according to current frequency and CPU maximum capacity.
++	 * For the others, we return the delta_exec as is.
  	 */
  	if (unlikely(dl_se->flags & SCHED_FLAG_RECLAIM)) {
  		scaled_delta_exec = grub_reclaim(delta_exec, rq, dl_se);
