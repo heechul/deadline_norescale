@@ -1,0 +1,57 @@
+diff --git a/kernel/sched/syscalls.c b/kernel/sched/syscalls.c
+index ff0e5ab4e..ec1236f84 100644
+--- a/kernel/sched/syscalls.c
++++ b/kernel/sched/syscalls.c
+@@ -523,6 +523,8 @@ static int user_check_sched_setscheduler(struct task_struct *p,
+ 	return 0;
+ }
+ 
++#define CONFIG_DL_NOAC 1
++
+ int __sched_setscheduler(struct task_struct *p,
+ 			 const struct sched_attr *attr,
+ 			 bool user, bool pi)
+@@ -654,6 +656,7 @@ int __sched_setscheduler(struct task_struct *p,
+ #ifdef CONFIG_SMP
+ 		if (dl_bandwidth_enabled() && dl_policy(policy) &&
+ 				!(attr->sched_flags & SCHED_FLAG_SUGOV)) {
++#ifndef CONFIG_DL_NOAC
+ 			cpumask_t *span = rq->rd->span;
+ 
+ 			/*
+@@ -666,6 +669,7 @@ int __sched_setscheduler(struct task_struct *p,
+ 				retval = -EPERM;
+ 				goto unlock;
+ 			}
++#endif /* CONFIG_DL_NOAC */
+ 		}
+ #endif
+ 	}
+@@ -679,6 +683,7 @@ int __sched_setscheduler(struct task_struct *p,
+ 		goto recheck;
+ 	}
+ 
++#ifndef CONFIG_DL_NOAC
+ 	/*
+ 	 * If setscheduling to SCHED_DEADLINE (or changing the parameters
+ 	 * of a SCHED_DEADLINE task) we need to check if enough bandwidth
+@@ -688,6 +693,7 @@ int __sched_setscheduler(struct task_struct *p,
+ 		retval = -EBUSY;
+ 		goto unlock;
+ 	}
++#endif /* CONFIG_DL_NOAC */
+ 
+ 	p->sched_reset_on_fork = reset_on_fork;
+ 	oldprio = p->prio;
+@@ -1146,8 +1152,11 @@ int dl_task_check_affinity(struct task_struct *p, const struct cpumask *mask)
+ 	 * root_domain.
+ 	 */
+ 	guard(rcu)();
++
++#ifndef CONFIG_DL_NOAC
+ 	if (!cpumask_subset(task_rq(p)->rd->span, mask))
+ 		return -EBUSY;
++#endif /* CONFIG_DL_NOAC */
+ 
+ 	return 0;
+ }
