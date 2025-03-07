@@ -1,0 +1,48 @@
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 4abd29517..c277a172c 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7769,7 +7769,7 @@ static int __sched_setscheduler(struct task_struct *p,
+ 		}
+ #endif
+ #ifdef CONFIG_SMP
+-		if (dl_bandwidth_enabled() && dl_policy(policy) &&
++		if (sched_feat(DEADLINE_ACS) && dl_bandwidth_enabled() && dl_policy(policy) &&
+ 				!(attr->sched_flags & SCHED_FLAG_SUGOV)) {
+ 			cpumask_t *span = rq->rd->span;
+ 
+@@ -7801,7 +7801,7 @@ static int __sched_setscheduler(struct task_struct *p,
+ 	 * of a SCHED_DEADLINE task) we need to check if enough bandwidth
+ 	 * is available.
+ 	 */
+-	if ((dl_policy(policy) || dl_task(p)) && sched_dl_overflow(p, policy, attr)) {
++	if (sched_feat(DEADLINE_ACS) && (dl_policy(policy) || dl_task(p)) && sched_dl_overflow(p, policy, attr)) {
+ 		retval = -EBUSY;
+ 		goto unlock;
+ 	}
+@@ -8350,7 +8350,7 @@ int dl_task_check_affinity(struct task_struct *p, const struct cpumask *mask)
+ 	 * root_domain.
+ 	 */
+ 	rcu_read_lock();
+-	if (!cpumask_subset(task_rq(p)->rd->span, mask))
++	if (sched_feat(DEADLINE_ACS) && !cpumask_subset(task_rq(p)->rd->span, mask))
+ 		ret = -EBUSY;
+ 	rcu_read_unlock();
+ 	return ret;
+diff --git a/kernel/sched/features.h b/kernel/sched/features.h
+index eca1ebf26..ad96d1787 100644
+--- a/kernel/sched/features.h
++++ b/kernel/sched/features.h
+@@ -16,6 +16,12 @@ SCHED_FEAT(RUN_TO_PARITY, true)
+  */
+ SCHED_FEAT(RT_GANG_LOCK, false)
+ 
++/*
++ * Enable DEADLINE scheduler's admission control system (ACS)
++ * NOTE: this feature is disabled by default
++ */
++SCHED_FEAT(DEADLINE_ACS, false)
++
+ /*
+  * Prefer to schedule the task we woke last (assuming it failed
+  * wakeup-preemption), since its likely going to consume data we
