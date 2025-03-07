@@ -1,57 +1,49 @@
+diff --git a/kernel/sched/features.h b/kernel/sched/features.h
+index a3d331dd2..090dabf6a 100644
+--- a/kernel/sched/features.h
++++ b/kernel/sched/features.h
+@@ -37,6 +37,12 @@ SCHED_FEAT(NEXT_BUDDY, false)
+  */
+ SCHED_FEAT(CACHE_HOT_BUDDY, true)
+ 
++/*
++ * Enable DEADLINE scheduler's admission control system (ACS)
++ * NOTE: this feature is disabled by default
++ */
++SCHED_FEAT(DEADLINE_ACS, false)
++
+ /*
+  * Delay dequeueing tasks until they get selected or woken.
+  *
 diff --git a/kernel/sched/syscalls.c b/kernel/sched/syscalls.c
-index ff0e5ab4e..ec1236f84 100644
+index ff0e5ab4e..1a0f91bb1 100644
 --- a/kernel/sched/syscalls.c
 +++ b/kernel/sched/syscalls.c
-@@ -523,6 +523,8 @@ static int user_check_sched_setscheduler(struct task_struct *p,
- 	return 0;
- }
- 
-+#define CONFIG_DL_NOAC 1
-+
- int __sched_setscheduler(struct task_struct *p,
- 			 const struct sched_attr *attr,
- 			 bool user, bool pi)
-@@ -654,6 +656,7 @@ int __sched_setscheduler(struct task_struct *p,
- #ifdef CONFIG_SMP
- 		if (dl_bandwidth_enabled() && dl_policy(policy) &&
- 				!(attr->sched_flags & SCHED_FLAG_SUGOV)) {
-+#ifndef CONFIG_DL_NOAC
- 			cpumask_t *span = rq->rd->span;
- 
- 			/*
-@@ -666,6 +669,7 @@ int __sched_setscheduler(struct task_struct *p,
- 				retval = -EPERM;
- 				goto unlock;
- 			}
-+#endif /* CONFIG_DL_NOAC */
+@@ -652,7 +652,7 @@ int __sched_setscheduler(struct task_struct *p,
  		}
  #endif
- 	}
-@@ -679,6 +683,7 @@ int __sched_setscheduler(struct task_struct *p,
- 		goto recheck;
- 	}
+ #ifdef CONFIG_SMP
+-		if (dl_bandwidth_enabled() && dl_policy(policy) &&
++		if (sched_feat(DEADLINE_ACS) && dl_bandwidth_enabled() && dl_policy(policy) &&
+ 				!(attr->sched_flags & SCHED_FLAG_SUGOV)) {
+ 			cpumask_t *span = rq->rd->span;
  
-+#ifndef CONFIG_DL_NOAC
- 	/*
- 	 * If setscheduling to SCHED_DEADLINE (or changing the parameters
+@@ -684,7 +684,7 @@ int __sched_setscheduler(struct task_struct *p,
  	 * of a SCHED_DEADLINE task) we need to check if enough bandwidth
-@@ -688,6 +693,7 @@ int __sched_setscheduler(struct task_struct *p,
+ 	 * is available.
+ 	 */
+-	if ((dl_policy(policy) || dl_task(p)) && sched_dl_overflow(p, policy, attr)) {
++	if (sched_feat(DEADLINE_ACS) && (dl_policy(policy) || dl_task(p)) && sched_dl_overflow(p, policy, attr)) {
  		retval = -EBUSY;
  		goto unlock;
  	}
-+#endif /* CONFIG_DL_NOAC */
- 
- 	p->sched_reset_on_fork = reset_on_fork;
- 	oldprio = p->prio;
-@@ -1146,8 +1152,11 @@ int dl_task_check_affinity(struct task_struct *p, const struct cpumask *mask)
+@@ -1146,7 +1146,8 @@ int dl_task_check_affinity(struct task_struct *p, const struct cpumask *mask)
  	 * root_domain.
  	 */
  	guard(rcu)();
+-	if (!cpumask_subset(task_rq(p)->rd->span, mask))
 +
-+#ifndef CONFIG_DL_NOAC
- 	if (!cpumask_subset(task_rq(p)->rd->span, mask))
++	if (sched_feat(DEADLINE_ACS) && !cpumask_subset(task_rq(p)->rd->span, mask))
  		return -EBUSY;
-+#endif /* CONFIG_DL_NOAC */
  
  	return 0;
- }
